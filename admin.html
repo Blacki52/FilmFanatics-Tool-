@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Manage Movies</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+        :root {
+            --primary-color: #007bff;
+            --dark-color: #2c3e50;
+            --light-color: #ecf0f1;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f4f7f6;
+            color: var(--dark-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 20px;
+            background: #fff;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: var(--dark-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .form-section {
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            font-size: 1rem;
+            transition: opacity 0.3s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-primary { background-color: var(--primary-color); }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-secondary { background-color: #6c757d; }
+
+        .movie-list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            border: 1px solid #eee;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        
+        .movie-list-item img {
+            width: 50px;
+            height: 75px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 15px;
+        }
+
+        .movie-list-item .info {
+            flex-grow: 1;
+        }
+
+        .movie-list-item .actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Edit Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 8px;
+        }
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Admin Panel</h1>
+
+        <!-- Movie Upload Form Section -->
+        <div class="form-section">
+            <h2>Add New Movie</h2>
+            <form id="add-movie-form">
+                <div class="form-group">
+                    <label for="movieTitle">Movie Title</label>
+                    <input type="text" id="movieTitle" placeholder="Enter movie title" required>
+                </div>
+                <div class="form-group">
+                    <label for="posterUrl">Movie Poster URL</label>
+                    <input type="url" id="posterUrl" placeholder="https://example.com/poster.jpg" required>
+                </div>
+                <div class="form-group">
+                    <label for="movieUrl">Movie File URL</label>
+                    <input type="url" id="movieUrl" placeholder="https://example.com/movie.mp4" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload Movie</button>
+            </form>
+        </div>
+
+        <!-- Existing Movies List Section -->
+        <div class="list-section">
+            <h2>Manage Uploaded Movies</h2>
+            <div id="admin-movie-list">
+                <!-- Movie list yahan load hogi -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Movie Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">×</span>
+            <h2>Edit Movie</h2>
+            <form id="edit-movie-form">
+                <input type="hidden" id="editMovieId">
+                <div class="form-group">
+                    <label for="editMovieTitle">Movie Title</label>
+                    <input type="text" id="editMovieTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="editPosterUrl">Movie Poster URL</label>
+                    <input type="url" id="editPosterUrl" required>
+                </div>
+                <div class="form-group">
+                    <label for="editMovieUrl">Movie File URL</label>
+                    <input type="url" id="editMovieUrl" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Firebase SDK Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Step 1 se copy kiya hua Firebase config yahan paste karein
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Firebase ko initialize karein
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const moviesCollection = db.collection('movies');
+
+        const addForm = document.getElementById('add-movie-form');
+        const adminMovieList = document.getElementById('admin-movie-list');
+        const editModal = document.getElementById('editModal');
+        const editForm = document.getElementById('edit-movie-form');
+        const closeModalBtn = document.querySelector('.close-btn');
+
+        // Function: Movie upload karna
+        addForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('movieTitle').value;
+            const posterUrl = document.getElementById('posterUrl').value;
+            const movieUrl = document.getElementById('movieUrl').value;
+
+            try {
+                await moviesCollection.add({ title, posterUrl, movieUrl });
+                alert('Movie uploaded successfully!');
+                addForm.reset();
+                fetchAndDisplayAdminMovies(); // List refresh karein
+            } catch (error) {
+                console.error("Error adding document: ", error);
+                alert('Failed to upload movie.');
+            }
+        });
+
+        // Function: Sabhi movies ko admin panel mein dikhana
+        async function fetchAndDisplayAdminMovies() {
+            adminMovieList.innerHTML = 'Loading...';
+            try {
+                const snapshot = await moviesCollection.get();
+                let listHTML = '';
+                snapshot.forEach(doc => {
+                    const movie = doc.data();
+                    listHTML += `
+                        <div class="movie-list-item" data-id="${doc.id}">
+                            <img src="${movie.posterUrl}" alt="Poster">
+                            <div class="info">
+                                <strong>${movie.title}</strong>
+                            </div>
+                            <div class="actions">
+                                <button class="btn btn-secondary btn-edit">Edit</button>
+                                <button class="btn btn-danger btn-delete">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                adminMovieList.innerHTML = listHTML;
+            } catch (error) {
+                console.error("Error fetching movies for admin: ", error);
+                adminMovieList.innerHTML = 'Failed to load movies.';
+            }
+        }
+
+        // Function: Edit aur Delete button ke liye event handling
+        adminMovieList.addEventListener('click', async (e) => {
+            const target = e.target;
+            const listItem = target.closest('.movie-list-item');
+            if (!listItem) return;
+
+            const docId = listItem.dataset.id;
+            
+            // Delete button
+            if (target.classList.contains('btn-delete')) {
+                if (confirm('Are you sure you want to delete this movie?')) {
+                    try {
+                        await moviesCollection.doc(docId).delete();
+                        alert('Movie deleted successfully!');
+                        fetchAndDisplayAdminMovies();
+                    } catch (error) {
+                        console.error("Error deleting movie: ", error);
+                        alert('Failed to delete movie.');
+                    }
+                }
+            }
+
+            // Edit button
+            if (target.classList.contains('btn-edit')) {
+                const doc = await moviesCollection.doc(docId).get();
+                const movie = doc.data();
+                
+                document.getElementById('editMovieId').value = docId;
+                document.getElementById('editMovieTitle').value = movie.title;
+                document.getElementById('editPosterUrl').value = movie.posterUrl;
+                document.getElementById('editMovieUrl').value = movie.movieUrl;
+                
+                editModal.style.display = 'block';
+            }
+        });
+
+        // Function: Edit modal ko band karna
+        closeModalBtn.onclick = () => { editModal.style.display = 'none'; };
+        window.onclick = (e) => {
+            if (e.target == editModal) {
+                editModal.style.display = 'none';
+            }
+        };
+
+        // Function: Edit form submit hone par movie update karna
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const docId = document.getElementById('editMovieId').value;
+            const updatedData = {
+                title: document.getElementById('editMovieTitle').value,
+                posterUrl: document.getElementById('editPosterUrl').value,
+                movieUrl: document.getElementById('editMovieUrl').value
+            };
+
+            try {
+                await moviesCollection.doc(docId).update(updatedData);
+                alert('Movie updated successfully!');
+                editModal.style.display = 'none';
+                fetchAndDisplayAdminMovies();
+            } catch (error) {
+                console.error("Error updating movie: ", error);
+                alert('Failed to update movie.');
+            }
+        });
+
+
+        // Page load hone par movies fetch karein
+        window.onload = fetchAndDisplayAdminMovies;
+    </script>
+
+</body>
+</html>
